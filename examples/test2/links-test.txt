@@ -278,7 +278,7 @@ Macro.add(["vuforiaDataset"], {
 &lt;&lt;/append3d&gt;&gt;
 &lt;&lt;/nobr&gt;&gt;</tw-passagedata>
 <tw-passagedata pid="2" name="StoryInit" tags="" position="567,228">&lt;&lt;initVuforia &quot;http://argonjs.io/argon-aframe/vuforia/key.txt&quot;&gt;&gt;
-&lt;&lt;vuforiaDataset  &quot;gvuBrochure&quot; &quot;http://argonjs.io/samples/code/resources/datasets/ArgonTutorial.xml&quot;&gt;&gt;
+&lt;&lt;vuforiaDataset tutorial &quot;http://argonjs.io/samples/code/resources/datasets/ArgonTutorial.xml&quot;&gt;&gt;
 
 &lt;&lt;createReferenceFrameEntity box-and-sphere story ar.user userotation=false&gt;&gt;
 
@@ -291,7 +291,6 @@ Macro.add(["vuforiaDataset"], {
 &lt;&lt;append3d gvuCover story&gt;&gt;
 &lt;a-box position=&quot;0 0 0.025&quot; width=&quot;0.05&quot; depth=&quot;0.05&quot; height=&quot;0.05&quot; color=&quot;yellow&quot; &gt;&lt;/a-sphere&gt;
 &lt;&lt;/append3d&gt;&gt;
-
 </tw-passagedata>
 <tw-passagedata pid="3" name="second" tags="" position="733,493">This is a second AR scene.  [[Click|third]] to go to another one, or [[Click|Start]] to return to the previous one.  This one has more text, because we&#39;d like to see how that lay&#39;s out with our current CSS.  I wonder what the wrapping and offscreen issues are.&lt;&lt;nobr&gt;&gt;
 &lt;&lt;createReferenceFrameEntity sphere2 passage ar.user userotation=false&gt;&gt;
