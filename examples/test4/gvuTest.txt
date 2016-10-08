@@ -1,0 +1,1044 @@
+<tw-storydata name="AR Book" startnode="1" creator="Twine" creator-version="2.0.11" ifid="81C9B173-93A7-4AAB-83B2-25C792330BE4" format="OldFashioned" options="" hidden><style role="stylesheet" id="twine-user-stylesheet" type="text/twine-css">#story {
+  pointer-events: auto;
+  font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+  padding: 10px;
+  background-color:rgba(255,255,255,0.7);
+  -webkit-backdrop-filter: blur(5px);
+  position:absolute;
+  bottom: 0px;
+}
+
+
+.viewerMode #story {
+  display: none;
+}
+
+.argon-focus #story {
+  transition: opacity 0.8s;
+  visibility: visible;
+  opacity: 1; 
+}
+
+.argon-no-focus #story {
+  transition: visibility 0s linear 0.8s, opacity 0.8s;
+  visibility: visible;
+  opacity: 0;
+}
+
+
+.topScreen {
+    position: absolute;
+	top: 10px;
+    margin: 9, auto;
+    left: 25%;
+	width: 50%;
+	text-align: center;
+	color: rgb(127,255,255);
+	background: rgba(10,10,10,0.75);
+	outline: 3px solid rgba(127,255,255,0.5);
+	border: 0px;
+	padding: 15px;    
+    display: inline-block;
+    font-size: 24px;
+    font-family: 'Open Sans', sans-serif;
+}
+
+.gvulink {
+    width: 500px;
+    pointer-events: auto;
+    height: 63px;
+    color: black;
+    outline: 5px solid rgba(12,25,25,1.0);
+    border: 0px;
+    margin-bottom: 0px;
+    padding: 0px 0px;
+}
+
+.webPage {
+    width: 500px;
+    pointer-events: auto;
+    height: 480px;
+    color: black;
+    background: rgba(255,255,255,0.85);
+    outline: 20px solid rgba(12,25,25,1.0);
+    border: 0px;
+    margin-bottom: 0px;
+    padding: 0px 0px;
+}
+
+
+.viewerMode.topScreen  {
+    font-size: 8px;
+    top:120px;
+    padding:2px;
+}
+
+ .hide.topScreen  {
+    display: none;
+}</style><script role="script" id="twine-user-script" type="text/twine-javascript">Config.ui.stowBarInitially = true; 
+Config.saves.autoload = false;
+Config.saves.autosave = false;
+
+var storyEvents = [];
+var passageEvents = [];
+
+predisplay['#argon-passage-cleanup'] = function (task) {
+		for (var i=0; i<passageEvents.length; i++) { 
+			var e = passageEvents[i];
+			e.target.removeEventListener(e.eventName, e.callback);
+		}
+		passageEvents = [];
+		$('#passage-entities').empty();
+};
+
+function getComponentAttrFromArg(arg) {
+	var eq = arg.indexOf("=");
+	if (eq == -1) {
+		return(arg);
+	} else if (eq == 0 || eq == arg.length-1) {
+		return "";
+	} else {
+		return arg.slice(0,eq) + ":" + arg.slice(eq+1) + ";";
+	}
+}
+
+//var panoramaRealityURL = "http://argonjs.io/argon-aframe/resources/reality/panorama/index.html" 
+Macro.add(['requestPanoramaReality'], {
+	handler() {
+		if (this.args.length < 2) {
+			return this.error('required parameters are name and url');
+		}
+		console.log("new reality '" + this.args[0] + "', url: " + this.args[1]);
+		$('#argon-aframe').attr("desiredreality", "name:'" + this.args[0] + "';src:url(" + this.args[1] + ");");
+	}
+});
+
+Macro.add(['createPanorama'], {
+	handler() {
+		if (this.args.length < 3) {
+				return this.error('required parameters are {name, dataset url, LLA}, plus other optional additional parameters');
+		}
+		console.log("new panorama '" + this.args[0] + "', url: " + this.args[1]);
+		var argValue = "src:url(" + this.args[1] + ");lla:" + this.args[2] + ";";
+
+		for (var i = 3; i<this.args.length; i++) {
+			argValue += getComponentAttrFromArg(this.args[i]);
+		}
+
+		$('#argon-aframe').attr("panorama__" + this.args[0], argValue);
+	}
+});
+
+Macro.add(['showPanorama'], {
+	handler() {
+		if (this.args.length < 1) {
+			return this.error('parameter is panorama name');
+		}
+		console.log("show panorama '" + this.args[0]);
+		$('#argon-aframe')[0].emit("showpanorama", { name: this.args[0] });
+	}
+});
+
+Macro.add(['deletePanorama'], {
+	handler() {
+		if (this.args.length < 1) {
+			return this.error('parameter is panorama name');
+		}
+		console.log("remove panorama '" + this.args[0]);
+		$('#argon-aframe').removeAttr("panorama__" + this.args[0]);
+	}
+});
+
+function setAttrFromArg(target, arg) {
+	var eq = arg.indexOf("=");
+	if (eq == -1) {
+		target.attr(arg);
+	} else if (eq == 0 || eq == arg.length-1) {
+		return false;
+	} else {
+		target.attr(arg.slice(0,eq), arg.slice(eq+1));
+	}
+}
+
+// <<deleteEntity name >>
+// <<showEntity name >>
+// <<hideEntity name >>
+Macro.add(['removeEntity','showEntity','hideEntity'], {
+		handler() {
+			if (this.args.length < 1) {
+				return this.error('must specify entity name');
+			}
+
+			var targetId = this.args[0];
+
+			// want to search both story and passage entities for the entity to manipulate
+			var $container = $("#story-entities").add("#passage-entities");
+
+			var $targets = $container.find("#" + targetId);
+			
+			if ($targets.length > 0) {
+				switch (this.name) {
+				case "removeEntity":
+					$container.remove($targets);
+					break;
+					
+				case "showEntity":
+					$targets.attr("visible", "true");
+					break;
+				
+				case "hideEntity":
+					$targets.attr("visible", "false");
+					break;
+				}
+			} else {
+				return this.error('passage "' + targetId + '" does not exist.');
+			}
+		}
+});
+
+// <<createGeolocatedEntity name story|passage "lla"  * >>
+Macro.add(['createGeolocationEntity'], {
+		handler() {
+			if (this.args.length < 3) {
+				return this.error('need selector, name and LLA');
+			}
+
+			var targetId = this.args[0];
+
+			var $container;
+			if (this.args[1] === "story") {
+				$container = $("#story-entities");
+			} else if (this.args[1] === "passage") {
+				$container = $("#passage-entities");
+			} else {
+				return this.error('3D content type must be "story" or "passage": "' + this.args[1] + '" invalid');
+			}
+			
+			var $targets = $container.find("#" + targetId);
+
+			if ($targets.length > 0) {
+				return this.error('passage "' + targetId + '" already exists.');
+			} 
+
+			$targets = jQuery(document.createElement('ar-geopose'));
+			$targets.attr({
+				"id": targetId,
+				"lla": this.args[2]
+			});
+
+
+			for (var i = 3; i<this.args.length; i++) {
+				setAttrFromArg($targets, this.args[i]);
+			}
+
+			$container.append($targets);	
+		}
+});
+
+// <<createReferenceEntity name story|passage "parent frame" * >>
+Macro.add(['createReferenceFrameEntity'], {
+		handler() {
+			if (this.args.length < 3) {
+				return this.error('need selector, name and parent frame name');
+			}
+
+			var targetId = this.args[0];
+
+			var $container;
+			if (this.args[1] === "story") {
+				$container = $("#story-entities");
+			} else if (this.args[1] === "passage") {
+				$container = $("#passage-entities");
+			} else {
+				return this.error('3D content type must be "story" or "passage": "' + this.args[1] + '" invalid');
+			}
+
+			var $targets = $container.find("#" + targetId);
+
+			if ($targets.length > 0) {
+				return this.error('passage "' + targetId + '" already exists.');
+			} 
+
+			$targets = jQuery(document.createElement('ar-frame'));
+			$targets.attr({
+				"id": targetId,
+				"parent": this.args[2]
+			});
+
+			for (var i = 3; i<this.args.length; i++) {
+				setAttrFromArg($targets, this.args[i]);
+			}
+
+			$container.append($targets);	
+		}
+});
+
+
+// <<append3d name>> content <</append3d>>
+Macro.add(['append3d', 'replace3d'], {
+		tags : null,
+
+		handler() {
+			if (this.args.length < 1) {
+				return this.error('must specify entity name');
+			}
+			
+			var targetId = this.args[0];
+
+			// want to search both story and passage entities for the entity to manipulate
+			var $container = $("#story-entities").add("#passage-entities");
+			
+			var $targets = $container.find("#" + targetId);
+			if ($targets.length === 0) {
+				return this.error('passage "' + targetId + '" does not exist.');
+			} 
+			
+			if (this.name === 'replace3d') {
+				$targets.empty();
+			}
+
+			if (this.payload[0].contents !== '') {
+				var frag = document.createDocumentFragment();
+				new Wikifier(frag, this.payload[0].contents);
+			    var div = document.createElement('div');
+			    div.appendChild(frag);
+				var text = div.innerText;
+
+				console.log("storing content in 3D element: " + text);
+  	            $targets.append(text);
+			}
+		}
+});
+
+// <<addAsset>> content <</addAsset>>
+Macro.add(['addAsset'], {
+		tags: null,
+
+		handler () {
+			var $assets = $("a-assets");
+			if ($assets.length === 0) {
+				$assets = jQuery(document.createElement('a-assets'));
+				$("#argon-aframe").prepend($assets);
+			}
+			if (this.payload[0].contents !== '') {
+				var frag = document.createDocumentFragment();
+				new Wikifier(frag, this.payload[0].contents);
+			    var div = document.createElement('div');
+			    div.appendChild(frag);
+				var text = div.innerText;
+
+  	            $assets.append(text);
+			}			
+		}
+});
+
+// <<onEvent name story|passage target event [eventVar]>> twine code to run <</onEvent>>
+Macro.add(['onEvent'], {
+	tags: null,
+
+	handler () {
+			if (this.args.length < 4) {
+				return this.error('must specify a name for the event, story or passage, a jquery selector, event name (optional variable name for event data)');
+			}
+
+			var thisName = this.args[0];
+			var targetId = this.args[2];
+			var eventList;
+
+			// want to search the entire 3D scene for possible targets
+			var $container = $("#argon-aframe");
+			var $targets = targetId === "#argon-aframe" ? $container :  $container.find(targetId);
+			if ($targets.length === 0) {
+				return this.error('passage "' + targetId + '" does not exist.');
+			} 
+
+
+			if (this.args[1] === "story") {
+				eventList = storyEvents;
+			} else if (this.args[1] === "passage") {
+				eventList = passageEvents;
+			} else {
+				return this.error('3D content type must be "story" or "passage": "' + this.args[1] + '" invalid');
+			}
+			
+			var tempVar = false;
+			var varName = undefined;
+			if (this.args.length > 4) {
+				//	return this.error('variable name must start with $ or _: ' + this.args[1] + " " + this.args[2] + " " + this.args[3]);
+				
+				varName = this.args[4];
+				if (varName[0] === '_') {
+					tempVar = true;
+					varName = varName.slice(1);
+				} else if (varName[0] === '$') {
+					varName = varName.slice(1);
+				} else {
+					return this.error('variable name must start with $ or _');
+				}
+			}
+			var contents = this.payload[0].contents;
+			if (contents === '') {
+				return; /// do nothing
+			}
+
+			var eventName = this.args[3];
+			var name = this.payload[0].name;
+			var source = this.payload[0].source;
+
+			// if the target matched multiple targets, attach the event to each one
+			for (var i = 0; i < $targets.length; i++) {
+				// create somewhere to store the output if an error
+				var eventOutput = jQuery(document.createElement('span'))
+					.addClass(`macro-${this.name}`)
+					.appendTo(this.output);
+
+				// if (Config.debug && curItem.name === 'next') {
+				// 	eventOutput = jQuery((new DebugView( // eslint-disable-line no-param-reassign
+				// 		eventOutput[0],
+				// 		'macro',			
+				// 		name,
+				// 		source
+				// 	)).output);
+				// }
+
+				var cbFunc = function (evt) {
+					if (varName) {
+						if (tempVar) {
+							TempVariables[varName] = evt;
+						} else {
+							State.variables[varName] = evt;
+						}
+					}
+					// empty the contents, so we can update them
+					eventOutput.empty();
+					var frag = document.createDocumentFragment();
+					new Wikifier(frag, contents);
+					eventOutput.append(frag);
+				}
+				$targets[i].addEventListener(eventName, cbFunc);
+				var newEvent = {
+					name: thisName,
+					targetId: targetId,
+					target: $targets[i],
+					eventName: eventName,
+					callback: cbFunc
+				}
+				eventList.push(newEvent);
+			}
+		
+	}
+});
+
+// <<removeEvent name>>
+Macro.add(["removeEvent"], {
+		handler () {
+			if (this.args.length < 1) {
+				return this.error('must specify onEvent name');
+			}
+
+			var eventName = this.args[0];
+
+			var filterFunc = function(e) {
+				if (e.name == eventName) {
+					e.target.removeEventListener(e.eventName, e.callback);
+					return false;
+				} 
+				return true;
+			};
+			storyEvents = storyEvents.filter(filterFunc);
+			passageEvents = passageEvents.filter(filterFunc);
+		}
+});
+
+//
+Macro.add(["initVuforia"], {
+	handler () {
+		if (this.args.length < 1) {
+				return this.error('parameter missing: key file url');
+		}
+
+		var keyElem = document.createElement('a-asset-item');
+		var $keyElem = jQuery(keyElem);
+		$keyElem.attr({
+		   "id" : "vuforiakey",
+  		   "src" : this.args[0]
+		});
+
+		keyElem.addEventListener('loaded', function(evt) {
+			$('#argon-aframe').attr("vuforiakey", "#vuforiakey");
+		});
+  	$('#argon-aframe').prepend($keyElem);
+	}
+});
+
+Macro.add(["vuforiaDataset"], {	
+	handler () {
+		if (this.args.length < 2) {
+				return this.error('parameters are {id, dataset url}');
+		}
+		console.log("dataset: " + this.args[1]);
+		$('#argon-aframe').attr("vuforiadataset__" + this.args[0], "src:url(" + this.args[1] + ");");
+	}
+});
+
+// <<createHUD name [name-2]>>
+Macro.add(["createHUD"], {	
+	handler () {
+		if (this.args.length < 1) {
+				return this.error('parameters is one or two names for left (and right) hud elements');
+		}
+
+		var hudElem1 = document.createElement('div');
+		var $hudElem1 = jQuery(hudElem1).attr("id", this.args[0]);
+
+		var hudElem2 = document.createElement('div');
+		var $hudElem2 = jQuery(hudElem2).attr("id", this.args.length < 2 ? this.args[0] + "-2": this.args[1]);
+
+		var arScene = document.querySelector('ar-scene');
+		arScene.hud.appendChild(hudElem1, hudElem2);
+	}
+});
+
+// <<deleteHUD name [name-2]>>
+// <<showHUD name [name-2]>>
+// <<hideHUD name [name-2]>>
+Macro.add(['removeHUD','showHUD','hideHUD'], {
+		handler() {
+			if (this.args.length < 1) {
+				return this.error('must specify HUD element name');
+			}
+
+			var targetId1 = this.args[0];
+			var targetId2 = this.args.length < 2 ? this.args[0] + "-2": this.args[1];
+
+			// want to search both story and passage entities for the entity to manipulate
+			var $container = $("#hud");
+			var $targets = $container.find("#" + targetId1).add($container.find("#" + targetId2));
+			
+			if ($targets.length > 0) {
+				switch (this.name) {
+				case "removeHUD":
+					$targets.remove();
+					break;
+					
+				case "showHUD":
+					targets.attr("visible", "true");
+					break;
+				
+				case "hideHUD":
+					targets.attr("visible", "false");
+					break;
+				}
+			} else {
+				return this.error('passage "' + targetId + '" does not exist.');
+			}
+		}
+});
+
+///
+/// actual story javascript
+///
+
+var $scratch = jQuery(document.createElement('div'));
+$scratch.attr("id", "scratch");
+$scratch.hide();
+$scratch.insertAfter("#argon-aframe");
+
+$scratch.append("<div id='Page_01-video-webpage' class='webPage'><h1><center>Welcome To GVU 2015</center></h1><iframe id='Page_01-video-iframe' width='500' height='400' src='https://www.youtube-nocookie.com/embed/hMWgb6LVyRE?rel=0&autoplay=1&playsinline=1&enablejsapi=true' frameborder='0' allowfullscreen></iframe></div>");
+
+var tag = document.createElement('script');
+tag.id = "Page_01-youtubescript";
+tag.src = 'https://www.youtube.com/iframe_api';
+var firstScriptTag = document.getElementsByTagName('script')[0];
+firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+State.variables.page1VideoPlayer = null;
+State.variables.page1VideoPlaying = false;
+
+var onPlayerReady = function(event) {
+    document.getElementById('Page_01-video-webpage').style.borderColor = '#FF6D00';
+};
+var onPlayerStateChange = function(event) {
+    var playerStatus = event.data;
+	  var color;
+    if (playerStatus == -1) {
+      color = "#37474F"; // unstarted = gray
+    } else if (playerStatus == 0) {
+			console.log("VIDEO ENDED");
+
+	  	State.variables.page1VideoPlaying = false;
+      color = "#FFFF00"; // ended = yellow
+    } else if (playerStatus == 1) {
+			console.log("VIDEO STARTED PLAYING");
+
+  		State.variables.page1VideoPlaying = true;
+      color = "#33691E"; // playing = green
+    } else if (playerStatus == 2) {
+      color = "#DD2C00"; // paused = red
+    } else if (playerStatus == 3) {
+      color = "#AA00FF"; // buffering = purple
+    } else if (playerStatus == 5) {
+      color = "#FF6DOO"; // video cued = orange
+    }
+    if (color) {
+			console.log("changed video iframe to color " + color);
+      document.getElementById('Page_01-video-webpage').style.borderColor = color;
+    }
+};
+  
+window.onYouTubeIframeAPIReady = function() {
+     State.variables.page1VideoPlayer = new window.YT.Player('Page_01-video-iframe', {
+        events: {
+          'onReady': onPlayerReady,
+          'onStateChange': onPlayerStateChange
+        }
+    });
+}
+</script><tw-passagedata pid="1" name="Start" tags="" position="720,49">&lt;center&gt;&lt;h2&gt;GVU Research Brochure&lt;/h2&gt;&lt;h3&gt;AR Companion App&lt;/h3&gt;&lt;/center&gt;Follow the digital trail from the paper brochure to digital world. Learn more about the people, projects and ideas that make up the GVU research community.&lt;p id=&quot;message&quot;&gt;&lt;em&gt;Loading ...&lt;/em&gt;&lt;/p&gt;&lt;&lt;nobr&gt;&gt;
+
+/* create a spinner to show while loading */
+&lt;&lt;createReferenceFrameEntity spinningbox passage ar.user&gt;&gt;
+&lt;&lt;createHUD &quot;hudElem&quot; &quot;hudElem2&quot;&gt;&gt;
+
+&lt;&lt;append3d spinningbox&gt;&gt;
+&lt;a-box position=&quot;0 3 -10&quot; radius=&quot;0.25&quot; color=&quot;gold&quot; rotation=&quot;0 0 45&quot;&gt;
+&lt;a-animation attribute=&quot;rotation&quot; from=&quot;0 0 45&quot; to=&quot;0 360 45&quot; dur=&quot;1000&quot; easing=&quot;ease-in-out&quot; repeat=&quot;indefinite&quot;&gt;&lt;/a-animation&gt;&lt;/a-box&gt;
+&lt;&lt;/append3d&gt;&gt;
+
+/* if vuforia isn&#39;t available, tell the user we can&#39;t do
+   anything on this platform */
+&lt;&lt;onEvent vuforiaNotAvailable passage &quot;#argon-aframe&quot; argon-vuforia-not-available &quot;_evt&quot;&gt;&gt; 
+	&lt;&lt;replace &quot;#message&quot;&gt;&gt;&lt;b&gt;Your browser does not support Vuforia AR tracking software, please consider using Argon4.&lt;/b&gt;&lt;&lt;/replace&gt;&gt;
+    &lt;&lt;addclass &quot;#hudElem&quot; hide&gt;&gt;
+    &lt;&lt;addclass &quot;#hudElem2&quot; hide&gt;&gt;
+	&lt;&lt;hideEntity spinningbox&gt;&gt;
+&lt;&lt;/onEvent&gt;&gt;
+
+/* follow the initialization steps, providing feedback 
+   to the user along the way.  Many of these won&#39;t happen
+   if the web app is set up correctly, but we pay attention
+   anyway to help with debugging */
+&lt;&lt;onEvent argonInit passage &quot;#argon-aframe&quot; argon-initialized&gt;&gt;
+	&lt;&lt;replace &quot;#message&quot;&gt;&gt;Argon initialized, start vision tracker...&lt;&lt;/replace&gt;&gt;
+&lt;&lt;/onEvent&gt;&gt;
+
+&lt;&lt;onEvent vuforiaInit passage &quot;#argon-aframe&quot; argon-vuforia-initialized&gt;&gt; 
+	&lt;&lt;replace &quot;#message&quot;&gt;&gt;Vision tracker initialized, downloading tracking data...&lt;&lt;/replace&gt;&gt;
+&lt;&lt;/onEvent&gt;&gt;
+
+&lt;&lt;onEvent vuforiaInitFailed passage &quot;#argon-aframe&quot; argon-vuforia-initialization-failed &quot;_evt&quot;&gt;&gt; 
+	&lt;&lt;replace &quot;#message&quot;&gt;&gt;Vision tracker failed to initialize: _evt.detail.error.message&lt;&lt;/replace&gt;&gt;
+&lt;&lt;/onEvent&gt;&gt;
+
+&lt;&lt;onEvent vuforiaLoadFailed passage &quot;#argon-aframe&quot; argon-vuforia-dataset-load-failed &quot;_evt&quot;&gt;&gt; 
+	&lt;&lt;replace &quot;#message&quot;&gt;&gt;Failed to load tracking dataset: _evt.detail.error.message&lt;&lt;/replace&gt;&gt;
+&lt;&lt;/onEvent&gt;&gt;
+
+/* change the style of the small hud element used to 
+   say &quot;look at the brochure&quot; in viewer mode */ 
+&lt;&lt;onEvent enterVR story &quot;#argon-aframe&quot; enter-vr &quot;_evt&quot; &gt;&gt;
+    &lt;&lt;addclass &quot;#hudElem&quot; viewerMode&gt;&gt;
+    &lt;&lt;addclass &quot;#hudElem2&quot; viewerMode&gt;&gt;
+&lt;&lt;/onEvent&gt;&gt;
+&lt;&lt;onEvent exitVR story &quot;#argon-aframe&quot; exit-vr &quot;_evt&quot; &gt;&gt;
+    &lt;&lt;removeclass &quot;#hudElem&quot; viewerMode&gt;&gt;
+    &lt;&lt;removeclass &quot;#hudElem2&quot; viewerMode&gt;&gt;
+&lt;&lt;/onEvent&gt;&gt;
+
+&lt;&lt;onEvent vuforiaLoaded passage &quot;#argon-aframe&quot; argon-vuforia-dataset-loaded &quot;_evt&quot;&gt;&gt;
+&lt;&lt;replace &quot;#message&quot;&gt;&gt;&lt;&lt;/replace&gt;&gt;
+&lt;&lt;hideEntity spinningbox&gt;&gt;
+&lt;&lt;append &quot;#hudElem&quot;&gt;&gt;Look at the brochure to begin&lt;&lt;/append&gt;&gt;
+&lt;&lt;append &quot;#hudElem2&quot;&gt;&gt;Look at the brochure to begin&lt;&lt;/append&gt;&gt;
+&lt;&lt;addclass &quot;#hudElem&quot; topScreen&gt;&gt;
+&lt;&lt;addclass &quot;#hudElem2&quot; topScreen&gt;&gt;
+
+&lt;&lt;set $trackables to _evt.detail.trackables&gt;&gt; 
+&lt;&lt;set $trackableKeys to Object.keys(_evt.detail.trackables)&gt;&gt;
+&lt;&lt;set $trackablesFound to 0&gt;&gt;
+&lt;&lt;set $onPages = []&gt;&gt;
+
+&lt;&lt;for _i to 0; _i lt $trackableKeys.length; _i++&gt;&gt;
+	&lt;&lt;set _t to $trackableKeys[_i]&gt;&gt;
+	&lt;&lt;set _tObject to $trackables[_t]&gt;&gt;
+	&lt;&lt;set _tEntity to _t+&quot;-entity&quot;&gt;&gt;
+	&lt;&lt;set _tTrigger to _t+&quot;-trigger&quot;&gt;&gt;
+	&lt;&lt;set _tTarget to &quot;vuforia.gvubrochure.&quot;+_t&gt;&gt;
+	&lt;&lt;set _tSelector to &quot;#&quot;+_tEntity&gt;&gt;
+	&lt;&lt;set _tName to &quot;targetStatus-&quot;+_t&gt;&gt;
+
+    /* all targets start with Page_xx */
+    &lt;&lt;set _tPassage to _t.slice(0,7)&gt;&gt; 
+	
+	&lt;&lt;set _tObject.entityName to _tEntity&gt;&gt;
+	&lt;&lt;set _tObject.triggerName to _tTrigger&gt;&gt;
+	&lt;&lt;set _tObject.selector to _tSelector&gt;&gt;
+	&lt;&lt;set _tObject.found to false&gt;&gt;
+	&lt;&lt;set _tObject.eventName to _tName&gt;&gt;
+	&lt;&lt;set _tObject.referenceName to _tTarget&gt;&gt;
+	&lt;&lt;set _tObject.passageName to _tPassage&gt;&gt;
+	&lt;&lt;set _tObject.initPassage to false&gt;&gt;
+	
+	&lt;&lt;set _tTriggerString to &quot;trigger=radius:0.25;event:&quot;+_tTrigger+&quot;;&quot;&gt;&gt;
+	
+	&lt;&lt;createReferenceFrameEntity _tEntity story _tTarget  trackvisibility=true visible=false _tTriggerString&gt;&gt;
+
+&lt;&lt;set _ttt to &quot;gvulink-&quot; + _t&gt;&gt;
+&lt;&lt;append &quot;#scratch&quot;&gt;&gt;
+&lt;div id=&quot;ttttttt&quot; class=&#39;gvulink&#39;&gt;&lt;a href=&quot;http://gvu.gatech.edu&quot;&gt;&lt;img width=&quot;100%&quot; height=&quot;100%&quot; src=&quot;http://bmaci.com/a4/twine/gvu-images/gvu.png&quot;&gt;
+&lt;/a&gt;&lt;/div&gt;
+&lt;&lt;/append&gt;&gt;
+&lt;&lt;script&gt;&gt;
+$(&quot;#ttttttt&quot;).attr(&quot;id&quot;, TempVariables.ttt);
+&lt;&lt;/script&gt;&gt;
+
+&lt;&lt;set _tempStr to &quot;css-object=&#39;div:#gvulink-&quot; + _t + &quot;&#39;&quot;&gt;&gt;
+&lt;&lt;append3d _tEntity&gt;&gt;
+&lt;a-entity&gt;
+  &lt;a-entity _tempStr scale=&quot;0.0003 0.0003 0.0003&quot; rotation=&quot;0 0 0&quot; position=&quot;0 -0.1600 0&quot;&gt;&lt;/a-entity&gt;
+&lt;/a-entity&gt;
+&lt;&lt;/append3d&gt;&gt;
+
+&lt;&lt;onEvent _tName story _tSelector referenceframe-statuschanged &quot;_evt&quot;&gt;&gt; 
+&lt;&lt;set _rfc_name to _evt.detail.target.id&gt;&gt;
+&lt;&lt;if _rfc_name.endsWith(&quot;-entity&quot;)&gt;&gt;
+  &lt;&lt;set _rfc_name to _rfc_name.slice(0,-7)&gt;&gt;
+  &lt;&lt;set _rfcObject to $trackables[_rfc_name]&gt;&gt;
+  &lt;&lt;set _rfcGoto to null&gt;&gt;
+  &lt;&lt;set _rfcObject.found to _evt.detail.found&gt;&gt;
+  &lt;&lt;set $trackablesFound to 0&gt;&gt;
+  &lt;&lt;set _rfc_stay to false&gt;&gt;
+  &lt;&lt;for _rfc_i to 0; _rfc_i lt $trackableKeys.length; _rfc_i++&gt;&gt;
+	 &lt;&lt;set _rfc_o to $trackables[$trackableKeys[_rfc_i]]&gt;&gt;
+	 &lt;&lt;set _rfc_t to _rfc_o.found&gt;&gt;
+	 &lt;&lt;if _rfc_t&gt;&gt;
+	 	&lt;&lt;set $trackablesFound = $trackablesFound + 1&gt;&gt;  
+		&lt;&lt;set _rfcGoto to _rfc_o&gt;&gt;
+		&lt;&lt;if $onPages.includes($trackableKeys[_rfc_i])&gt;&gt;
+			&lt;&lt;set _rfc_stay to true&gt;&gt;
+		&lt;&lt;/if&gt;&gt;
+     &lt;&lt;/if&gt;&gt;
+  &lt;&lt;/for&gt;&gt;
+  &lt;&lt;if $trackablesFound eq 0&gt;&gt;
+    &lt;&lt;removeclass &quot;#hudElem&quot; hide&gt;&gt;
+    &lt;&lt;removeclass &quot;#hudElem2&quot; hide&gt;&gt;
+  &lt;&lt;else&gt;&gt;
+    &lt;&lt;addclass &quot;#hudElem&quot; hide&gt;&gt;
+    &lt;&lt;addclass &quot;#hudElem2&quot; hide&gt;&gt;
+	&lt;&lt;if not _rfc_stay&gt;&gt;
+		&lt;&lt;if _rfcGoto isnot null&gt;&gt;
+		   &lt;&lt;replace &quot;#hudElem&quot;&gt;&gt;Look at the brochure&lt;&lt;/replace&gt;&gt;
+		   &lt;&lt;replace &quot;#hudElem2&quot;&gt;&gt;Look at the brochure&lt;&lt;/replace&gt;&gt;
+			&lt;&lt;goto _rfcGoto.passageName&gt;&gt;
+		&lt;&lt;/if&gt;&gt;
+    &lt;&lt;/if&gt;&gt;
+  &lt;&lt;/if&gt;&gt;
+&lt;&lt;/if&gt;&gt;
+&lt;&lt;/onEvent&gt;&gt;
+&lt;&lt;/for&gt;&gt;	
+&lt;&lt;/onEvent&gt;&gt;
+&lt;&lt;/nobr&gt;&gt;</tw-passagedata>
+<tw-passagedata pid="2" name="StoryInit" tags="" position="518,55">/* we want to use vuforia for this story */
+&lt;&lt;initVuforia &quot;http://argonjs.io/argon-aframe/vuforia/key.txt&quot;&gt;&gt;
+&lt;&lt;vuforiaDataset gvubrochure &quot;http://argonjs.io/samples/code/resources/datasets/GVUBrochure.xml&quot;&gt;&gt;
+
+/* some variables we&#39;ll use throughout.
+ * - trackables: will be the trackable pages of the brochure
+ * - trackableKeys: will be an array of target names
+ * - trackablesFound: current number of pages being tracked 
+ * - onPages: the pages being used by the current part of
+ *            the story 
+ * - pagePassage: which passage to go to for a specific target
+ *                when switching pages.
+ */
+&lt;&lt;set $trackables to {}&gt;&gt; 
+&lt;&lt;set $trackableKeys to []&gt;&gt;
+&lt;&lt;set $trackablesFound to 0&gt;&gt;
+&lt;&lt;set $onPages = []&gt;&gt;
+
+Config.saves.autoload = false;
+
+&lt;&lt;addAsset&gt;&gt;
+&lt;a-asset-item id=&quot;tree&quot; src=&quot;http://bmaci.com/a4/twine/resources/models/tree1/tree1.dae&quot;&gt;&lt;/a-asset-item&gt;
+&lt;&lt;/addAsset&gt;&gt;
+
+</tw-passagedata>
+<tw-passagedata pid="3" name="Page_01" tags="" position="51,36">&lt;&lt;set $onPages = [&quot;Page_01-cover&quot;]&gt;&gt;Inside, you&#39;ll find information about the GVU center, the research our faculty engage in, how we interact with companies and funding agencies.  Each pages has different AR content.&lt;&lt;nobr&gt;&gt;
+&lt;&lt;set _tObject to $trackables[&quot;Page_01-cover&quot;]&gt;&gt;
+&lt;&lt;set _tn to _tObject.entityName&gt;&gt;
+&lt;&lt;set _ts to _tObject.selector&gt;&gt;
+
+/* need to pause youtube video when we leave page, get rid of this if we leave and recreate it when we come back */
+&lt;&lt;onEvent _tn passage _ts referenceframe-statuschanged &quot;_evt&quot;&gt;&gt; 
+&lt;&lt;set _rfc_name to _evt.detail.target.id&gt;&gt;
+&lt;&lt;if not _evt.detail.found&gt;&gt;
+&lt;&lt;script&gt;&gt;
+var div = $(&quot;#Page_01-video-iframe&quot;)[0].contentWindow;   div.postMessage(&#39;{&quot;event&quot;:&quot;command&quot;,&quot;func&quot;:&quot;pauseVideo&quot;,&quot;args&quot;:&quot;&quot;}&#39;, &#39;*&#39;);
+&lt;&lt;/script&gt;&gt;
+&lt;&lt;/if&gt;&gt;
+&lt;&lt;/onEvent&gt;&gt;
+
+&lt;&lt;if _tObject.initPassage&gt;&gt;
+&lt;&lt;else&gt;&gt;
+  &lt;&lt;set _tObject.initPassage to true&gt;&gt;
+
+&lt;&lt;append3d _tn&gt;&gt;
+  &lt;a-entity id=&quot;Page_01-video&quot; position=&quot;0 0.14 0.05&quot; rotation=&quot;90 0 0&quot;&gt;
+    &lt;a-entity css-object=&quot;div:#Page_01-video-webpage&quot; scale=&quot;0.00025 0.00025 0.00025&quot; rotation=&quot;0 0 0&quot; position=&quot;0 0 0&quot;&gt;     &lt;/a-entity&gt;
+  &lt;/a-entity&gt;
+&lt;&lt;/append3d&gt;&gt;
+
+&lt;&lt;/if&gt;&gt;
+&lt;&lt;/nobr&gt;&gt;
+</tw-passagedata>
+<tw-passagedata pid="4" name="Unused" tags="" position="1027,38">&lt;&lt;createReferenceFrameEntity gvuCover story vuforia.gvubrochure.Page_02-1 trackvisibility=true visible=false &quot;trigger=radius:0.2&quot;&gt;&gt;
+
+&lt;&lt;append3d gvuCover&gt;&gt;
+&lt;a-box id=&quot;gvuBox&quot; position=&quot;0 0 0.025&quot; width=&quot;0.05&quot; depth=&quot;0.05&quot; height=&quot;0.05&quot; color=&quot;yellow&quot; &gt;&lt;/a-sphere&gt;
+&lt;&lt;/append3d&gt;&gt;
+
+&lt;&lt;onEvent coverColorChange story &quot;#gvuCover&quot; trigger &quot;_evt&quot; &gt;&gt;
+&lt;&lt;if _evt.detail.inside is true&gt;&gt;
+&lt;&lt;replace3d gvuCover story&gt;&gt;&lt;a-box id=&quot;gvuBox&quot; position=&quot;0 0 0.025&quot; width=&quot;0.05&quot; depth=&quot;0.05&quot; height=&quot;0.05&quot; color=&quot;green&quot; &gt;&lt;/a-sphere&gt; &lt;&lt;/replace3d&gt;&gt;
+&lt;&lt;else&gt;&gt;
+&lt;&lt;replace3d gvuCover story&gt;&gt;&lt;a-box id=&quot;gvuBox&quot; position=&quot;0 0 0.025&quot; width=&quot;0.05&quot; depth=&quot;0.05&quot; height=&quot;0.05&quot; color=&quot;yellow&quot; &gt;&lt;/a-sphere&gt;&lt;&lt;/replace3d&gt;&gt;
+&lt;&lt;/if&gt;&gt;
+&lt;&lt;/onEvent&gt;&gt;
+
+
+
+&lt;&lt;onEvent targetInView passage &quot;#gvuCover&quot; referenceframe-statuschanged &quot;_evt&quot;&gt;&gt;&lt;&lt;nobr&gt;&gt;
+&lt;&lt;if not _evt.detail.found&gt;&gt;
+&lt;&lt;replace &quot;#message&quot;&gt;&gt;&lt;em&gt;Look at the target!&lt;/em&gt;&lt;&lt;/replace&gt;&gt;
+&lt;&lt;else&gt;&gt;
+&lt;&lt;replace &quot;#message&quot;&gt;&gt;&lt;em&gt;(in view)&lt;/em&gt;&lt;&lt;/replace&gt;&gt;
+&lt;&lt;/if&gt;&gt;
+&lt;&lt;/nobr&gt;&gt;&lt;&lt;/onEvent&gt;&gt;
+&lt;&lt;onEvent coverSearch passage &quot;#gvuCover&quot; trigger &quot;_evt&quot; &gt;&gt;&lt;&lt;nobr&gt;&gt;
+&lt;&lt;if _evt.detail.inside is true&gt;&gt;
+	&lt;b&gt;Within 0.25 meters of brochure.&lt;/b&gt;
+&lt;&lt;/if&gt;&gt;
+&lt;&lt;/nobr&gt;&gt;&lt;&lt;/onEvent&gt;&gt;
+
+
+</tw-passagedata>
+<tw-passagedata pid="5" name="Page_02" tags="" position="59,183">&lt;&lt;set $onPages = [&quot;Page_02-1&quot;,&quot;Page_02-2&quot;]&gt;&gt;Dr. Keith Edwards, GVU Director</tw-passagedata>
+<tw-passagedata pid="6" name="Page_03" tags="" position="52,339">&lt;&lt;set $onPages = [&quot;Page_03-1&quot;,&quot;Page_03-2&quot;]&gt;&gt;A Diverse Funding and Research Portfolio</tw-passagedata>
+<tw-passagedata pid="7" name="Page_04" tags="" position="54,484">&lt;&lt;set $onPages = [&quot;Page_04-1&quot;,&quot;Page_04-2&quot;]&gt;&gt;Community and Civic Participation</tw-passagedata>
+<tw-passagedata pid="8" name="Page_07" tags="" position="58,886">&lt;&lt;set $onPages = [&quot;Page_07-1&quot;,&quot;Page_07-2&quot;]&gt;&gt;Health and Wellness</tw-passagedata>
+<tw-passagedata pid="9" name="Page_06" tags="" position="61,748">&lt;&lt;set $onPages = [&quot;Page_06-1&quot;,&quot;Page_06-2&quot;]&gt;&gt;Computer Graphics and Media</tw-passagedata>
+<tw-passagedata pid="10" name="Page_08" tags="" position="65,1031">&lt;&lt;set $onPages = [&quot;Page_08-1&quot;,&quot;Page_08-2&quot;]&gt;&gt;Policy</tw-passagedata>
+<tw-passagedata pid="11" name="Page_09" tags="" position="274,40">&lt;&lt;set $onPages = [&quot;Page_09-1&quot;,&quot;Page_09-2&quot;]&gt;&gt;Creativity and Learning</tw-passagedata>
+<tw-passagedata pid="12" name="Page_15" tags="" position="291,893">&lt;&lt;set $onPages = [&quot;Page_15-back&quot;]&gt;&gt;Created with Argon, AFrame, Oldfashioned and Twine.&lt;&lt;nobr&gt;&gt;
+&lt;&lt;set _tObject to $trackables[&quot;Page_15-back&quot;]&gt;&gt;
+&lt;&lt;if not _tObject.initPassage&gt;&gt;
+
+&lt;&lt;set _tObject.initPassage to true&gt;&gt;
+&lt;&lt;set _tn to _tObject.entityName&gt;&gt;
+&lt;&lt;set _ts to _tObject.selector&gt;&gt;
+
+&lt;&lt;onEvent _tn story _ts referenceframe-statuschanged &quot;_evt&quot;&gt;&gt; 
+&lt;&lt;set _rfc_name to _evt.detail.target.id&gt;&gt;
+&lt;&lt;if _evt.detail.found is true&gt;&gt;
+  &lt;&lt;script&gt;&gt;
+  var contentRoot = document.querySelector(&#39;#logoscene&#39;);
+  contentRoot.play();
+  &lt;&lt;/script&gt;&gt;
+&lt;&lt;else&gt;&gt;
+  &lt;&lt;script&gt;&gt;
+  var contentRoot = document.querySelector(&#39;#logoscene&#39;);
+  contentRoot.pause();
+  contentRoot.setAttribute(&quot;visible&quot;, false);
+  &lt;&lt;/script&gt;&gt;
+&lt;&lt;/if&gt;&gt;  
+&lt;&lt;/onEvent&gt;&gt;
+
+
+&lt;&lt;append3d _tn&gt;&gt;
+&lt;a-entity id=&quot;logoscene&quot;  scale=&quot;0.005 0.005 0.005&quot; rotation=&quot;90 0 0&quot; visible=&quot;false&quot;&gt;
+          &lt;a-animation attribute=&quot;visible&quot; to=&quot;false&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+          &lt;a-animation attribute=&quot;visible&quot; to=&quot;true&quot; delay=&quot;10&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+
+          &lt;a-entity id=&quot;logo&quot; rotation=&quot;0 45 0&quot;&gt;
+            &lt;!-- Right side --&gt;
+            &lt;a-entity id=&quot;right&quot; rotation=&quot;-20 0 0&quot; position=&quot;0 0 10.75&quot; scale=&quot;1 0 1&quot;&gt;
+              &lt;a-animation attribute=&quot;scale&quot; to=&quot;1 0 1&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+              &lt;a-animation attribute=&quot;scale&quot; from=&quot;1 0 1&quot; to=&quot;1 1 1&quot; delay=&quot;200&quot; dur=&quot;1000&quot;
+                          easing=&quot;ease-out&quot;&gt;&lt;/a-animation&gt;
+              &lt;a-box width=&quot;12.5&quot; depth=&quot;1&quot; height=&quot;30&quot; color=&quot;#EF2D5E&quot; position=&quot;0 15 0&quot;&gt;
+
+                &lt;!-- Left side --&gt;
+                &lt;a-entity id=&quot;left&quot; rotation=&quot;-140 0 0&quot; position=&quot;0 15 0&quot; scale=&quot;1 0 1&quot;&gt;
+                  &lt;a-animation attribute=&quot;scale&quot; to=&quot;1 0 1&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+                  &lt;a-animation attribute=&quot;scale&quot; from=&quot;1 0 1&quot; to=&quot;1 1 1&quot; delay=&quot;800&quot; dur=&quot;800&quot;
+                              easing=&quot;ease-out&quot;&gt;&lt;/a-animation&gt;
+                  &lt;a-box width=&quot;12.49&quot; depth=&quot;.1&quot; height=&quot;30&quot; color=&quot;#24CAFF&quot;
+                          position=&quot;0 15 -.52&quot; shader=&quot;flat&quot;&gt;&lt;/a-box&gt;
+                  &lt;a-box width=&quot;12.5&quot; depth=&quot;1&quot; height=&quot;30&quot; color=&quot;#EF2D5E&quot;
+                          position=&quot;0 15 0&quot;&gt;&lt;/a-box&gt;
+                &lt;/a-entity&gt;
+              &lt;/a-box&gt;
+            &lt;/a-entity&gt;
+
+            &lt;!-- Cross-bar --&gt;
+            &lt;a-entity id=&quot;cross&quot; rotation=&quot;-90 0 0&quot; position=&quot;0 8 7.5&quot; scale=&quot;1 0 1&quot;&gt;
+              &lt;a-animation attribute=&quot;scale&quot; to=&quot;1 0 1&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+              &lt;a-animation attribute=&quot;scale&quot; from=&quot;1 0 1&quot; to=&quot;1 1 1&quot; delay=&quot;800&quot; dur=&quot;600&quot;
+                          easing=&quot;ease-out&quot;&gt;&lt;/a-animation&gt;
+              &lt;a-box width=&quot;12.45&quot; depth=&quot;.1&quot; height=&quot;14&quot; color=&quot;#F2E646&quot;
+                    position=&quot;0 7 .52&quot; shader=&quot;flat&quot;&gt;&lt;/a-box&gt;
+              &lt;a-box width=&quot;12.5&quot; depth=&quot;1&quot; height=&quot;14&quot; color=&quot;#EF2D5E&quot;
+                    position=&quot;0 7 0&quot;&gt;&lt;/a-box&gt;
+            &lt;/a-entity&gt;
+
+            &lt;!-- Clouds --&gt;
+            &lt;a-entity&gt;
+              &lt;!-- Large, foreground --&gt;
+              &lt;a-box color=&quot;white&quot; opacity=&quot;0.25&quot; width=&quot;18&quot; depth=&quot;28&quot; height=&quot;6&quot;&gt;
+                &lt;a-animation attribute=&quot;position&quot; from=&quot;-20 40 180&quot; to=&quot;-20 40 340&quot; delay=&quot;0&quot;
+                            dur=&quot;36000&quot; easing=&quot;linear&quot; repeat=&quot;indefinite&quot;
+                            fill=&quot;both&quot;&gt;&lt;/a-animation&gt;
+              &lt;/a-box&gt;
+
+              &lt;a-box color=&quot;white&quot; opacity=&quot;0.65&quot; width=&quot;8&quot; depth=&quot;12&quot; height=&quot;4&quot; visible=&quot;false&quot;&gt;
+                &lt;a-animation attribute=&quot;position&quot; to=&quot;25 32 -80&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+                &lt;a-animation attribute=&quot;position&quot; from=&quot;25 32 -80&quot; to=&quot;25 32 120&quot; delay=&quot;1200&quot;
+                            dur=&quot;30000&quot; easing=&quot;linear&quot; repeat=&quot;indefinite&quot;
+                            fill=&quot;both&quot;&gt;&lt;/a-animation&gt;
+                 &lt;a-animation attribute=&quot;visible&quot; to=&quot;false&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+                 &lt;a-animation attribute=&quot;visible&quot; to=&quot;true&quot; delay=&quot;1200&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+             &lt;/a-box&gt;
+
+              &lt;!-- Behind the A --&gt;
+              &lt;a-box color=&quot;white&quot; opacity=&quot;0.75&quot; width=&quot;6&quot; depth=&quot;9&quot; height=&quot;4&quot; visible=&quot;false&quot;&gt;
+                &lt;a-animation attribute=&quot;position&quot; to=&quot;10 12 -10&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+                &lt;a-animation attribute=&quot;position&quot; from=&quot;10 12 -10&quot; to=&quot;10 12 100&quot; delay=&quot;1000&quot;
+                            dur=&quot;36000&quot; easing=&quot;linear&quot; repeat=&quot;indefinite&quot;
+                            fill=&quot;both&quot;&gt;&lt;/a-animation&gt;
+                &lt;a-animation attribute=&quot;visible&quot; to=&quot;false&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+                &lt;a-animation attribute=&quot;visible&quot; to=&quot;true&quot; delay=&quot;1000&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+              &lt;/a-box&gt;
+
+              &lt;a-box color=&quot;white&quot; opacity=&quot;0.5&quot; width=&quot;8&quot; depth=&quot;12&quot; height=&quot;3&quot; visible=&quot;false&quot;&gt;
+                &lt;a-animation attribute=&quot;position&quot; to=&quot;-20 16 -80&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+                &lt;a-animation attribute=&quot;position&quot; from=&quot;-20 16 -80&quot; to=&quot;-20 16 120&quot; delay=&quot;200&quot;
+                            dur=&quot;52000&quot; easing=&quot;linear&quot; repeat=&quot;indefinite&quot;
+                            fill=&quot;both&quot;&gt;&lt;/a-animation&gt;
+                &lt;a-animation attribute=&quot;visible&quot; to=&quot;false&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+                &lt;a-animation attribute=&quot;visible&quot; to=&quot;true&quot; delay=&quot;200&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+              &lt;/a-box&gt;
+
+              &lt;a-box color=&quot;white&quot; opacity=&quot;0.8&quot; width=&quot;8&quot; depth=&quot;12&quot; height=&quot;3&quot;&gt;
+                &lt;a-animation attribute=&quot;position&quot; from=&quot;0 38 0&quot; to=&quot;0 38 120&quot; delay=&quot;0&quot;
+                            dur=&quot;50000&quot; easing=&quot;linear&quot; repeat=&quot;indefinite&quot;
+                            fill=&quot;both&quot;&gt;&lt;/a-animation&gt;
+              &lt;/a-box&gt;
+
+              &lt;a-box color=&quot;white&quot; opacity=&quot;0.75&quot; width=&quot;5&quot; depth=&quot;7&quot; height=&quot;3&quot; visible=&quot;false&quot;&gt;
+                &lt;a-animation attribute=&quot;position&quot; to=&quot;26 20 -80&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+                &lt;a-animation attribute=&quot;position&quot; from=&quot;26 20 -80&quot; to=&quot;26 20 120&quot; delay=&quot;2000&quot;
+                            dur=&quot;48000&quot; easing=&quot;linear&quot; repeat=&quot;indefinite&quot;
+                            fill=&quot;both&quot;&gt;&lt;/a-animation&gt;
+                &lt;a-animation attribute=&quot;visible&quot; to=&quot;false&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+                &lt;a-animation attribute=&quot;visible&quot; to=&quot;true&quot; delay=&quot;2000&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+              &lt;/a-box&gt;
+            &lt;/a-entity&gt;
+
+            &lt;!-- Shadow --&gt;
+            &lt;a-entity rotation=&quot;-90 0 0&quot;&gt;
+              &lt;a-plane id=&quot;shadow&quot; width=&quot;12.5&quot; height=&quot;20&quot; position=&quot;0 0 0.1&quot; pivot=&quot;0 -10 0&quot;
+                      color=&quot;#222222&quot; tranparent=&quot;true&quot; opacity=&quot;0.5&quot; &gt;
+                &lt;a-animation attribute=&quot;scale&quot; to=&quot;0 1 0&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+                &lt;a-animation attribute=&quot;scale&quot; from=&quot;0 1 0&quot; to=&quot;1 1 1&quot; easing=&quot;ease-out&quot;
+                            delay=&quot;600&quot; dur=&quot;1000&quot; fill=&quot;both&quot;&gt;&lt;/a-animation&gt;
+              &lt;/a-plane&gt;
+            &lt;/a-entity&gt;
+
+            &lt;!-- Base 
+            &lt;a-entity&gt;
+              &lt;a-plane width=&quot;30&quot; height=&quot;30&quot; color=&quot;#249889&quot; rotation=&quot;-90 0 0&quot;&gt;
+                &lt;a-animation attribute=&quot;position&quot; from=&quot;0 -40 0&quot; to=&quot;0 0 0&quot; dur=&quot;1600&quot;
+                            easing=&quot;ease-out&quot;&gt;&lt;/a-animation&gt;
+              &lt;/a-plane&gt;
+            &lt;/a-entity&gt;
+    --&gt;
+            &lt;!-- Trees --&gt;
+            &lt;a-entity position=&quot;-10 0.2 -10&quot;&gt;
+              &lt;a-collada-model id=&quot;tree1&quot; src=&quot;#tree&quot; scale=&quot;2.5 2.5 2.5&quot; visible=&quot;false&quot;&gt;
+                &lt;a-animation attribute=&quot;position&quot; to=&quot;0 10 0&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+                &lt;a-animation attribute=&quot;position&quot; from=&quot;0 10 0&quot; to=&quot;0 0 0&quot; delay=&quot;650&quot; dur=&quot;800&quot;
+                            easing=&quot;ease-out&quot; fill=&quot;backwards&quot;&gt;&lt;/a-animation&gt;
+                &lt;a-animation attribute=&quot;visible&quot; to=&quot;false&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+                &lt;a-animation attribute=&quot;visible&quot; to=&quot;true&quot; delay=&quot;800&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+              &lt;/a-collada-model&gt;
+            
+              &lt;a-entity rotation=&quot;-90 0 0&quot;&gt;
+                &lt;a-plane id=&quot;tree1shadow&quot; width=&quot;2.5&quot; height=&quot;2.5&quot; position=&quot;0 0 0.1&quot; 
+                        color=&quot;#222222&quot; tranparent=&quot;true&quot; opacity=&quot;0.5&quot; &gt;
+                  &lt;a-animation attribute=&quot;scale&quot; to=&quot;0 1 0&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+                  &lt;a-animation attribute=&quot;scale&quot; from=&quot;0 1 0&quot; to=&quot;1 1 1&quot; easing=&quot;ease-out&quot;
+                              delay=&quot;800&quot; dur=&quot;1000&quot; fill=&quot;both&quot;&gt;&lt;/a-animation&gt;
+                  &lt;a-animation attribute=&quot;visible&quot; to=&quot;false&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+                  &lt;a-animation attribute=&quot;visible&quot; to=&quot;true&quot; delay=&quot;800&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+                &lt;/a-plane&gt;
+              &lt;/a-entity&gt;
+            &lt;/a-entity&gt;
+
+            &lt;a-entity position=&quot;-10 0.2 6&quot;&gt;
+              &lt;a-collada-model id=&quot;tree2&quot; src=&quot;#tree&quot; scale=&quot;2.5 2.5 2.5&quot; visible=&quot;false&quot;&gt;
+                &lt;a-animation attribute=&quot;position&quot; to=&quot;0 10 0&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+                &lt;a-animation attribute=&quot;position&quot; from=&quot;0 10 0&quot; to=&quot;0 0 0&quot; delay=&quot;400&quot; dur=&quot;800&quot;
+                            easing=&quot;ease-out&quot; fill=&quot;backwards&quot;&gt;&lt;/a-animation&gt;
+                &lt;a-animation attribute=&quot;visible&quot; to=&quot;false&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+                &lt;a-animation attribute=&quot;visible&quot; to=&quot;true&quot; delay=&quot;400&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+              &lt;/a-collada-model&gt;
+            
+              &lt;a-entity rotation=&quot;-90 0 0&quot;&gt;
+                &lt;a-plane id=&quot;tree2shadow&quot; width=&quot;2.5&quot; height=&quot;2.5&quot; position=&quot;0 0 0.1&quot; 
+                        color=&quot;#222222&quot; tranparent=&quot;true&quot; opacity=&quot;0.5&quot; &gt;
+                  &lt;a-animation attribute=&quot;scale&quot; to=&quot;0 1 0&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+                  &lt;a-animation attribute=&quot;scale&quot; from=&quot;0 1 0&quot; to=&quot;1 1 1&quot; easing=&quot;ease-out&quot;
+                              delay=&quot;800&quot; dur=&quot;1000&quot; fill=&quot;both&quot;&gt;&lt;/a-animation&gt;
+                  &lt;a-animation attribute=&quot;visible&quot; to=&quot;false&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+                  &lt;a-animation attribute=&quot;visible&quot; to=&quot;true&quot; delay=&quot;800&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+                &lt;/a-plane&gt;
+              &lt;/a-entity&gt;
+            &lt;/a-entity&gt;
+
+            &lt;a-entity position=&quot;10 0.2 10&quot;&gt;
+              &lt;a-collada-model id=&quot;tree3&quot; src=&quot;#tree&quot; scale=&quot;2.5 2.5 2.5&quot; visible=&quot;false&quot;&gt;
+                &lt;a-animation attribute=&quot;position&quot; to=&quot;0 10 0&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+                &lt;a-animation attribute=&quot;position&quot; from=&quot;0 10 0&quot; to=&quot;0 0 0&quot; delay=&quot;600&quot; dur=&quot;800&quot;
+                            easing=&quot;ease-out&quot; fill=&quot;backwards&quot;&gt;&lt;/a-animation&gt;
+                &lt;a-animation attribute=&quot;visible&quot; to=&quot;false&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+                &lt;a-animation attribute=&quot;visible&quot; to=&quot;true&quot; delay=&quot;600&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+              &lt;/a-collada-model&gt;
+            
+              &lt;a-entity rotation=&quot;-90 0 0&quot;&gt;
+                &lt;a-plane id=&quot;tree3shadow&quot; width=&quot;2.5&quot; height=&quot;2.5&quot; position=&quot;0 0 0.1&quot; 
+                        color=&quot;#222222&quot; tranparent=&quot;true&quot; opacity=&quot;0.5&quot; &gt;
+                  &lt;a-animation attribute=&quot;scale&quot; to=&quot;0 1 0&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+                  &lt;a-animation attribute=&quot;scale&quot; from=&quot;0 1 0&quot; to=&quot;1 1 1&quot; easing=&quot;ease-out&quot;
+                              delay=&quot;800&quot; dur=&quot;1000&quot; fill=&quot;both&quot;&gt;&lt;/a-animation&gt;
+                  &lt;a-animation attribute=&quot;visible&quot; to=&quot;false&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+                  &lt;a-animation attribute=&quot;visible&quot; to=&quot;true&quot; delay=&quot;800&quot; dur=&quot;1&quot;&gt;&lt;/a-animation&gt;
+                &lt;/a-plane&gt;
+              &lt;/a-entity&gt;
+            &lt;/a-entity&gt;
+
+          &lt;/a-entity&gt;
+
+       &lt;/a-entity&gt;
+&lt;&lt;/append3d&gt;&gt;	  
+&lt;&lt;/if&gt;&gt;
+&lt;&lt;/nobr&gt;&gt;
+</tw-passagedata>
+<tw-passagedata pid="13" name="Page_14" tags="" position="291,747">&lt;&lt;set $onPages = [&quot;Page_14-1&quot;,&quot;Page_14-2&quot;]&gt;&gt;Partners</tw-passagedata>
+<tw-passagedata pid="14" name="Page_13" tags="" position="289,613">&lt;&lt;set $onPages = [&quot;Page_13-1&quot;,&quot;Page_13-2&quot;]&gt;&gt;Faculty</tw-passagedata>
+<tw-passagedata pid="15" name="Page_12" tags="" position="286,479">&lt;&lt;set $onPages = [&quot;Page_12-1&quot;,&quot;Page_12-2&quot;]&gt;&gt;Interacting with Wearable Computers</tw-passagedata>
+<tw-passagedata pid="16" name="Page_11" tags="" position="289,342">&lt;&lt;set $onPages = [&quot;Page_11-1&quot;,&quot;Page_11-2&quot;]&gt;&gt;Visualizing Large Data Sets</tw-passagedata>
+<tw-passagedata pid="17" name="Page_10" tags="" position="290,203">&lt;&lt;set $onPages = [&quot;Page_10-1&quot;,&quot;Page_10-2&quot;]&gt;&gt;Social Computing</tw-passagedata>
+<tw-passagedata pid="18" name="Page_05" tags="" position="54,609">&lt;&lt;set $onPages = [&quot;Page_05-1&quot;,&quot;Page_05-2&quot;]&gt;&gt;Interactive Games and AI&lt;&lt;nobr&gt;&gt;
+</tw-passagedata>
+</tw-storydata>
+
